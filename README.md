@@ -1,1 +1,1 @@
-# cv-attendance-system
+# attendance-system
