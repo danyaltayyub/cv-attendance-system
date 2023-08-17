@@ -47,22 +47,25 @@ def train_model(path):
                 face=face.cuda()
                 face_list.append(face) 
                 emb = resnet(face.unsqueeze(0)) # passing cropped face into resnet model to get embedding matrix
-                temp_list.append(emb.detach()) # resulten embedding matrix is stored in a list
+                # temp_list.append(emb.detach()) # resulten embedding matrix is stored in a list
+                embedding_list.append(emb.detach())
+                name_list.append(ls)
+
                 
-        temp_stack = torch.stack(temp_list)        
-        embedding_list.append (torch.mean(temp_stack, dim=0))
-        name_list.append (ls)
+        # temp_stack = torch.stack(temp_list)        
+        # embedding_list.append (torch.mean(temp_stack, dim=0))
+        # name_list.append (ls)
 
                 # print("images =====  ", img)
 
 
-    # data = [embedding_list, name_list]
-    # torch.save(data, 'data.pt') # saving data.pt file
+    data = [embedding_list, name_list]
+    torch.save(data, 'data.pt') # saving data.pt file
 
 
     print("Training done")
     return embedding_list, name_list
 
-# face_list , name_list = train_model('saved')
+face_list , name_list = train_model('saved')
 # print ("ITEMS in FACE LISTTT======", len(face_list))
 # print ("NAME LISTTT======", name_list)
