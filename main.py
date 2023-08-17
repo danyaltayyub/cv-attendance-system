@@ -5,9 +5,8 @@ from facenet_pytorch import InceptionResnetV1, MTCNN
 from tqdm import tqdm
 from types import MethodType
 # from get_encodings import get_encoding, encode, mtcnn, resnet
-from training import train_model
+# from training import train_model
 from record import record, initiate, search_entry, close_file
-from PIL import Image
 # from pdb import set_trace as debug
 
 
@@ -31,7 +30,7 @@ def detect_box(self, img, save_path=None):
     faces = self.extract(img, batch_boxes, save_path)
     return batch_boxes, faces
 
-def frame_processing(image, thres = 1.0):
+def frame_processing(image, thres = 200.0):
     min_dist = ""
      # cv2.imshow("test", img0)
     saved_data = torch.load('data.pt') # loading data.pt file
@@ -43,7 +42,6 @@ def frame_processing(image, thres = 1.0):
         for box, cropped in zip(batch_boxes, cropped_images):
             x, y, x2, y2 = [int(x) for x in box]
             resnet.classify = True
-            cropped = cropped.cuda()
             img_embedding = encode_from_cropped(cropped)
             # batch_images.append(resnet(cropped.unsqueeze(0)).detach())
 
@@ -107,13 +105,13 @@ def detect(cam, thres=1):
     i=1
     while vdo.grab():
         try:
-            _, img0 = vdo.retrieve()
+            _, img0 = vdo.read()
             # frames.append(Image.fromarray(img0))
 
-            if i % FRAME_SKIP == 0:
-                img0 = frame_processing(img0)
-                i = 1
-            i +=1
+            # if i % FRAME_SKIP == 0:
+            img0 = frame_processing(img0)
+            i = 1
+            # i +=1
             if (img0 is not None):
                 cv2.imshow("output", img0)
             if cv2.waitKey(1) == ord('q'):
@@ -128,7 +126,8 @@ def detect(cam, thres=1):
 if __name__ == "__main__":
     
     # faces, names = train_model('saved')
-    img = cv2.imread("oa.jpg")
-    img2 = frame_processing(img)
-    cv2.imwrite("ff.jpg", img2)
+    detect(VIDEO_PATH)
+    # img = cv2.imread("oa.jpg")
+    # img2 = frame_processing(img)
+    # cv2.imwrite("ff.jpg", img2)
     # close_file(file)

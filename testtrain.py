@@ -18,6 +18,10 @@ def encode_from_cropped(cropim):
     embed = resnet (cropim.unsqueeze(0))
     return embed
 
+def get_processed_img(img):
+    rgb_image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    return rgb_image
+
 
 
 
@@ -50,7 +54,7 @@ def train_model(path):
         temp_list = []
         
         for subls in listdir(subdir):
-            img = Image.open(subdir + '/' + subls)
+            img = get_processed_img(cv2.imread(subdir + '/' + subls))
             face , prob = mtcnn(img, return_prob=True)
 
             if face is not None and prob>0.9:
@@ -69,9 +73,9 @@ def train_model(path):
 
     print ("TEESSSTTIINNNGGGG+++++++==========")
 
-    timg = cv2.imread("test.jpg")
+    timg = get_processed_img(cv2.imread("test.jpg"))
     
-    boxes, tfaces = mtcnn.detect_box(timg)
+    tfaces,pro2 = mtcnn(timg, return_prob=True)
     if tfaces is not None:
         # x, y, x2, y2 = [int(x) for x in box]
         tembed = encode_from_cropped(tfaces)
@@ -80,6 +84,8 @@ def train_model(path):
         dist_list = [] # list of matched distances, minimum distance is used to identify the person
         
         for idx, emb_db in enumerate(embedding_list):
+            # if (name_list[idx] == "Danyal Tayyub"):
+            #     print("Come here...")
             dist = (tembed - emb_db).norm().item()
             print(name_list[idx], dist)
             dist_list.append(dist)
