@@ -73,7 +73,7 @@ def train_model(path):
 
     print ("TEESSSTTIINNNGGGG+++++++==========")
 
-    timg = get_processed_img(cv2.imread("test.jpg"))
+    timg = get_processed_img(cv2.imread("oa.jpg"))
     
     tfaces,pro2 = mtcnn(timg, return_prob=True)
     if tfaces is not None:

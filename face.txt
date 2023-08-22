@@ -1,0 +1,39 @@
+def train_model(path, set_face_detection_confidence=0.97):
+    face_list = []
+    name_list = []
+    embedding_list = []
+    face_prob_each_person = []
+
+    for ls in tqdm(os.listdir(path), desc='Model Training'):
+        subdir = os.path.join(path, ls)
+        temp_list = []
+        face_prob = []
+
+        for subls in os.listdir(subdir):
+            img = Image.open(os.path.join(subdir, subls))
+            face, prob = mtcnn(img, return_prob=True)
+            face = face.to(device)
+
+            face_prob.append((ls, subls, prob))
+
+            if face is not None and prob >= set_face_detection_confidence:
+                emb = resnet(face.unsqueeze(0))
+                temp_list.append(emb.detach())
+
+        temp_stack = torch.stack(temp_list)
+        embedding_list.append(torch.mean(temp_stack, dim=0))
+        name_list.append(ls)
+        face_prob_each_person.append(pd.DataFrame(face_prob, columns=['Person', 'Images', 'Face Probability']))
+
+    print("\n✔ Training done.")
+    print(f"✔ Total Persons in our Dataset: {len(name_list)}")
+    for p in name_list:
+      print(f"\t\t☑{p}")
+
+    df_face = pd.concat(face_prob_each_person)
+    df_face['Person'] = df_face["Person"].where(~df_face["Person"].duplicated(), "")
+    file_ = 'face-detection-info-using-mtcnn.csv'
+    df_face.to_csv(file_, index=False)
+    print(f"✔ Save file ({file_}) where you can see all person face probablity.")
+
+    return embedding_list, name_list
