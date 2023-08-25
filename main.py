@@ -12,7 +12,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 # from pdb import set_trace as debug
 
 
-VIDEO_PATH = "rtsp://admin:JGPHAN@192.168.0.118:554"
+VIDEO_PATH = "rtsp://admin:JGPHAN@192.168.0.104:554"
 file = initiate()
 
 # def encode_from_cropped(cropim):
@@ -70,41 +70,31 @@ def frame_processing(image, saved_data, thres = 0.7):
                 dist = cosine_similarity(img_embedding.reshape(1,-1), emb_db.reshape(1,-1))
                 print(name_list[idx], dist[0][0])
                 dist_list.append(dist[0][0])
-                name_list.append(name_list[idx])
             print("-------------")
 
 
     
             idx_min = dist_list.index(max(dist_list))
-            print (idx_min)            # idx_min = dist_list[0]
 
 
             # if dist_list[idx_min] < thres:
             if dist_list[idx_min] >= thres:
                 min_key = name_list[idx_min]
-                # min_key = name_list[0]
 
                 min_dist = str(round(dist_list[idx_min],2))
-                # min_dist = dist_list[0] 
                 
             elif dist_list[idx_min] < thres:
                 # min_key = name_list[idx_min]
                 # min_key = name_list[0]
                 min_key = 'Undetected'
 
-            # min_dist = str(round(dist_list[idx_min],2))
-
-
-            # dists = [[(e1 - e2).norm().item() for e2 in img_embedding] for e1 in all_people_faces]
-            # print (dists)
-            # print(pd.DataFrame(dists, index=names))
 
             cv2.rectangle(image, (x, y), (x2, y2), (0, 255, 0), 2)
             cv2.rectangle(image, (x, y2 - 70), (x2, y2), (0, 255, 0), cv2.FILLED)
             cv2.putText(image, min_key, (x + 6, y2 - 6), cv2.FONT_HERSHEY_DUPLEX, 1.0, (255, 255, 255), 2)
             cv2.putText(image, min_dist, (x + 30, y2 - 30), cv2.FONT_HERSHEY_DUPLEX, 1.0, (255, 255, 255), 2)
 
-            if search_entry(min_key, file):
+            if search_entry(min_key, file) and min_key is not "Undetected":
                 continue
             else:
                 record(min_key, file)
@@ -139,7 +129,7 @@ def detect(cam, thres=1):
 
 if __name__ == "__main__":
     
-    faces, names = train_model('saved')
+    # faces, names = train_model('saved')
     detect(VIDEO_PATH)
     # img = cv2.imread("oa.jpg")
     # img2 = frame_processing(img)
