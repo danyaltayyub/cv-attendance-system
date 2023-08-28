@@ -3,6 +3,7 @@ import torch
 import pandas as pd
 import csv
 import numpy as np
+from datetime import datetime
 from os import listdir
 from facenet_pytorch import InceptionResnetV1, MTCNN
 from tqdm import tqdm
@@ -14,12 +15,12 @@ class FaceRecognition:
     def __init__(self):
         # Constants
         self.BATCH_SIZE = 8
-        self.FRAME_SKIP = 10
-        self.dist_thres = 0.5
+        self.FRAME_SKIP = 5
+        self.dist_thres = 0.4
         self.VIDEO_PATH = "rtsp://admin:JGPHAN@192.168.0.104:554"
 
         # Initialize attendance file
-        self.file = self.initiate_att_file()
+        # self.file = self.initiate_att_file()
 
         # Face detection and recognition models
         self.resnet = None  # InceptionResnetV1 for face recognition
@@ -28,12 +29,17 @@ class FaceRecognition:
         self.margin = 0
         self.keep_all = True
         self.thresholds = [0.6, 0.7, 0.7]
-        self.min_face_size = 30
+        self.min_face_size = 40
         self.factor = 0.709
         self.post_process = True
 
+        # Recording Attendance, attendance files
+        self.ATT_FILE = "att.csv"
+        self.EMP_IDS = "employee_ids.csv" 
+
         # Load required modules
         self.__load_modules__()
+
 
     def detect_box(self, img, save_path = None):
         """
@@ -81,14 +87,6 @@ class FaceRecognition:
         # Attach custom method to MTCNN instance
         # self.mtcnn.detect_box = MethodType(self.detect_box, self.mtcnn)
 
-    def initiate_att_file():
-        header = ['Name', 'ID', 'Date', 'Time in']
-        f = open('att.csv', "w+")
-        writer = csv.writer(f)
-        writer.writerow(header)
-        return f
-
-
     def img_resize(self, cv_img, k1 = 640, k2 = 480):
         x = cv_img.shape[0]
         y = cv_img.shape[1]
@@ -103,23 +101,24 @@ class FaceRecognition:
     
     def extract_face_from_frame(self, frame):
         faces = []
-        frame = self.img_resize(frame)
+        # frame = self.img_resize(frame)
         rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         boxes , faces = self.detect_box(rgb_image)
         return boxes , faces
     
     def get_embeddings_from_face(self, face_tensor):
         self.resnet.classify = True
+
         face_tensor = face_tensor.cuda()
         embedding = self.resnet(face_tensor.unsqueeze(0))
-        return embedding.cpu().detach().numpy()
+        emb = embedding.cpu().detach().numpy()
+        return emb
     
     def initiate_known_embed(self, filename):
         norm_encod = []
-        _,face = self.extract_face_from_file(filename)
+        _ , face = self.extract_face_from_file(filename)
         if face is not None:
             for f in face:
-                embed = self.get_embeddings_from_face(f)
                 embed = self.get_embeddings_from_face(f)
                 norm_encod.append(self.encode_embedding(embed))
         
@@ -127,7 +126,7 @@ class FaceRecognition:
     
     def initiate_embed_from_frame(self, frame):
         norm_encod = []
-        face = self.extract_face_from_frame(frame)
+        _ , face = self.extract_face_from_frame(frame)
         if face is not None:
             for f in face:
                 embed = self.get_embeddings_from_face(f)
@@ -136,6 +135,9 @@ class FaceRecognition:
         return norm_encod
     
     def encode_embedding (self , img_embed):
+
+        # mean, std = img_embed.mean(), img_embed.std()
+        # emb = (img_embed - mean) / std
         in_encoder = Normalizer(norm = 'l2')
         encoded = in_encoder.transform(img_embed)
         return encoded
@@ -156,13 +158,68 @@ class FaceRecognition:
         x1, y1, x2, y2 = [int(x) for x in box]
         cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
         cv2.rectangle(img, (x1, y2 - 70), (x2, y2), (0, 255, 0), cv2.FILLED)
-        cv2.putText(img, name, (x1 + 6, y2 - 6), cv2.FONT_HERSHEY_DUPLEX, 1.0, (255, 255, 255), 2)
+        cv2.putText(img, name, (x1 + 6, y2 - 6), cv2.FONT_HERSHEY_DUPLEX, 1.0, (0, 0, 0), 4)
         cv2.putText(img, dist, (x1 + 30, y2 - 30), cv2.FONT_HERSHEY_DUPLEX, 1.0, (255, 255, 255), 2)
 
         return img
 
+    def get_employee_id(self, name, id_file):
+        """
+        Get the employee ID from the CSV file based on the employee name.
+        """
+        with open(id_file, mode='r') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                if row[0] == name:
+                    return row[1]
+        return None
+    
+    def store_attendance(self, name, employee_id, attendance_file):
+        """
+        Store the attendance entry in the CSV file.
+        """
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        # current_time = datetime.now().strftime('%H:%M:%S')
+        time_int = self.get_time_int()
+        
+        # Check for duplicate entry
+        if self.check_duplicate(attendance_file, name, current_date, time_int):
+            print("Duplicate entry found. Skipping.")
+            return
+
+
+
+        # Store attendance entry
+        with open(attendance_file, mode='a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow([name, employee_id, current_date, time_int])
+            print("Attendance entry stored successfully.")
+    
+    def check_duplicate(self, file, name, cur_date, cur_time):
+        """
+        Check if a name already exists in the CSV file.
+        """
+        with open(file, mode='r') as file:
+            reader = csv.reader(file)
+            check = False
+            for idx, row in enumerate(reader):
+                if idx>0:
+                    if row[0] == name:
+                        if row [2] == cur_date:
+                            if row [3] - cur_time < 300:
+                                check = True
+                            else :
+                                check = False
+                    
+        return check
+
+    def get_time_int(self):
+        time_int = datetime.now().time()
+        time_abs = (time_int.hour * 3600) + (time_int.minute * 60) + (time_int.second)
+        return time_abs
+    
     def label_names_in_frame (self, vid_frame , emb_list , name_list):
-        boxes , faces = self.detect_box(vid_frame)
+        boxes , faces = self.extract_face_from_frame(vid_frame)
         min_dist = ""
 
         if faces is not None:
@@ -188,6 +245,13 @@ class FaceRecognition:
                     min_key = 'Undetected'
 
                 vid_frame = self.draw_box (vid_frame , box , min_key , min_dist)
+                
+                if min_key != 'Undetected':
+                    employee_id = self.get_employee_id(min_key, self.EMP_IDS)
+                    if employee_id:
+                        self.store_attendance(min_key, employee_id, self.ATT_FILE)
+                    else:
+                        print("Employee ID not found for the given name.")
 
         return vid_frame
     
@@ -230,10 +294,8 @@ class FaceRecognition:
                         v_frame = self.label_names_in_frame(v_frame, embeddings, names)
                         cv2.imshow("output", v_frame)
                         
-                        
                 
                 i = i+1
-                
                 if cv2.waitKey(1) == ord('q'):
                     cv2.destroyAllWindows()
                     break
