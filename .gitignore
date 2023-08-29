@@ -165,3 +165,6 @@ vggface2.pt
 att.csv
 EncodingFile.npz
 leo_dicaprio1.jpeg
+data2.pt
+facenet_keras.h5
+employee_ids.csv
