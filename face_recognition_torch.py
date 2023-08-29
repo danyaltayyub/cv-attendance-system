@@ -16,7 +16,7 @@ class FaceRecognition:
         # Constants
         self.BATCH_SIZE = 8
         self.FRAME_SKIP = 5
-        self.dist_thres = 0.4
+        self.dist_thres = 0.85
         self.VIDEO_PATH = "rtsp://admin:JGPHAN@192.168.0.104:554"
 
         # Initialize attendance file
@@ -29,9 +29,10 @@ class FaceRecognition:
         self.margin = 0
         self.keep_all = True
         self.thresholds = [0.6, 0.7, 0.7]
-        self.min_face_size = 40
+        self.min_face_size = 50
         self.factor = 0.709
         self.post_process = True
+
 
         # Recording Attendance, attendance files
         self.ATT_FILE = "att.csv"
@@ -136,16 +137,18 @@ class FaceRecognition:
     
     def encode_embedding (self , img_embed):
 
-        # mean, std = img_embed.mean(), img_embed.std()
-        # emb = (img_embed - mean) / std
+        mean, std = img_embed.mean(), img_embed.std()
+        emb = (img_embed - mean) / std
         in_encoder = Normalizer(norm = 'l2')
-        encoded = in_encoder.transform(img_embed)
+        encoded = in_encoder.transform(emb)
         return encoded
     
 
     def calc_face_dist(self, face_emb1 , face_emb2):
-        dist = cosine_distances(face_emb1[0].reshape(1,-1) , face_emb2[0].reshape(1,-1))
-        return dist[0][0]
+        
+        dist = np.linalg.norm(face_emb1[0] - face_emb2[0], axis=1)
+        #dist = cosine_distances(face_emb1[0].reshape(1,-1) , face_emb2[0].reshape(1,-1))
+        return dist[0]
     
     def get_data_from_emb_file(self, file_path):
         data = torch.load(file_path)
@@ -179,11 +182,11 @@ class FaceRecognition:
         Store the attendance entry in the CSV file.
         """
         current_date = datetime.now().strftime('%Y-%m-%d')
-        # current_time = datetime.now().strftime('%H:%M:%S')
-        time_int = self.get_time_int()
+        current_time = datetime.now().strftime('%H:%M:%S')
+        # time_int = self.get_time_int()
         
         # Check for duplicate entry
-        if self.check_duplicate(attendance_file, name, current_date, time_int):
+        if self.check_duplicate(attendance_file, name, current_date, current_time):
             print("Duplicate entry found. Skipping.")
             return
 
@@ -192,7 +195,7 @@ class FaceRecognition:
         # Store attendance entry
         with open(attendance_file, mode='a', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow([name, employee_id, current_date, time_int])
+            writer.writerow([name, employee_id, current_date, current_time])
             print("Attendance entry stored successfully.")
     
     def check_duplicate(self, file, name, cur_date, cur_time):
@@ -202,20 +205,21 @@ class FaceRecognition:
         with open(file, mode='r') as file:
             reader = csv.reader(file)
             check = False
-            for idx, row in enumerate(reader):
-                if idx>0:
-                    if row[0] == name:
-                        if row [2] == cur_date:
-                            if row [3] - cur_time < 300:
-                                check = True
-                            else :
-                                check = False
-                    
+            for row in reader:
+                if row[0] == name:
+                    if row [2] == cur_date:
+                        if (self.get_time_int(row[3]) - self.get_time_int(cur_time)) < 300:
+                            check = True
+                        else :
+                            check = False
+                
         return check
 
-    def get_time_int(self):
-        time_int = datetime.now().time()
-        time_abs = (time_int.hour * 3600) + (time_int.minute * 60) + (time_int.second)
+    def get_time_int(self , time_str):
+        time_format = "%H:%M:%S"
+        time_object = datetime.strptime(time_str , time_format)
+        # time_int = datetime.now().time()
+        time_abs = (time_object.hour * 3600) + (time_object.minute * 60) + (time_object.second)
         return time_abs
     
     def label_names_in_frame (self, vid_frame , emb_list , name_list):

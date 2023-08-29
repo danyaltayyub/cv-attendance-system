@@ -105,7 +105,7 @@ def setEmbeddingsInFile(personpath, calculate_encodings=[]):
     first_split = personpath.split('/')
 
     second_split = first_split[-1].split('.')
-    filename = join(getcwd(), second_split[0] + '.txt')
+    filename = join(os.getcwd(), second_split[0] + '.txt')
 
     with open(filename, 'w') as filehandle:
         for listitem in embeddings:
